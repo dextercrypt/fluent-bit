@@ -3,7 +3,7 @@ set -e
 
 # Provided primarily to simplify testing for staging, etc.
 RELEASE_URL=${FLUENT_BIT_PACKAGES_URL:-https://packages.fluentbit.io}
-RELEASE_KEY=${FLUENT_BIT_PACKAGES_KEY:-$FLUENT_BIT_PACKAGES_URL/fluentbit.key}
+RELEASE_KEY=${FLUENT_BIT_PACKAGES_KEY:-https://packages.fluentbit.io/fluentbit.key}
 
 echo "================================"
 echo " Fluent Bit Installation Script "
@@ -27,13 +27,8 @@ else
     OS=$(uname -s)
 fi
 
-SUDO=sudo
-if [[ $(id -u) -eq 0 ]]; then
-    SUDO=''
-else
-    # Clear any previous sudo permission
-    sudo -k
-fi
+# Clear any previous sudo permission
+sudo -k
 
 # Now set up repos and install dependent on OS, version, etc.
 # Will require sudo
@@ -41,51 +36,43 @@ case ${OS} in
     amzn|amazonlinux)
         # We need variable expansion and non-expansion on the URL line to pick up the base URL.
         # Therefore we combine things with sed to handle it.
-        $SUDO sh <<SCRIPT
+        sudo sh <<SCRIPT
 rpm --import $RELEASE_KEY
 cat << EOF > /etc/yum.repos.d/fluent-bit.repo
 [fluent-bit]
 name = Fluent Bit
-# Legacy server style
 baseurl = $RELEASE_URL/amazonlinux/VERSION_ARCH_SUBSTR
-# IaC server style
-baseurl = $RELEASE_URL/amazonlinux/VERSION_SUBSTR
 gpgcheck=1
 repo_gpgcheck=1
 gpgkey=$RELEASE_KEY
 enabled=1
 EOF
 sed -i 's|VERSION_ARCH_SUBSTR|\$releasever/\$basearch/|g' /etc/yum.repos.d/fluent-bit.repo
-sed -i 's|VERSION_SUBSTR|\$releasever/|g' /etc/yum.repos.d/fluent-bit.repo
 cat /etc/yum.repos.d/fluent-bit.repo
 yum -y install fluent-bit
 SCRIPT
     ;;
     centos|centoslinux|rhel|redhatenterpriselinuxserver|fedora|rocky|almalinux)
-        $SUDO sh <<SCRIPT
+        sudo sh <<SCRIPT
 rpm --import $RELEASE_KEY
 cat << EOF > /etc/yum.repos.d/fluent-bit.repo
 [fluent-bit]
 name = Fluent Bit
-# Legacy server style
 baseurl = $RELEASE_URL/centos/VERSION_ARCH_SUBSTR
-# IaC server style
-baseurl = $RELEASE_URL/centos/VERSION_SUBSTR
 gpgcheck=1
 repo_gpgcheck=1
 gpgkey=$RELEASE_KEY
 enabled=1
 EOF
 sed -i 's|VERSION_ARCH_SUBSTR|\$releasever/\$basearch/|g' /etc/yum.repos.d/fluent-bit.repo
-sed -i 's|VERSION_SUBSTR|\$releasever/|g' /etc/yum.repos.d/fluent-bit.repo
 cat /etc/yum.repos.d/fluent-bit.repo
-yum -y install fluent-bit
+yum -y install fluent-bit=2.1.10
 SCRIPT
     ;;
     ubuntu|debian)
         # Remember apt-key add is deprecated
         # https://wiki.debian.org/DebianRepository/UseThirdParty#OpenPGP_Key_distribution
-        $SUDO sh <<SCRIPT
+        sudo sh <<SCRIPT
 export DEBIAN_FRONTEND=noninteractive
 mkdir -p /usr/share/keyrings/
 curl $RELEASE_KEY | gpg --dearmor > /usr/share/keyrings/fluentbit-keyring.gpg
@@ -94,7 +81,7 @@ deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] $RELEASE_URL/${OS}/${C
 EOF
 cat /etc/apt/sources.list.d/fluent-bit.list
 apt-get -y update
-apt-get -y install fluent-bit
+apt-get -y install fluent-bit=2.1.10
 SCRIPT
     ;;
     *)
